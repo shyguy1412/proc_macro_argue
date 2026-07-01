@@ -2,6 +2,10 @@
 name = "proc_macro_argue"
 version = "0.0.0"
 edition = "2024"
+license = "MIT"
+description = "declarative parsing for procedural macros"
+documentation = "https://docs.rs/proc_macro_argue"
+repository = "https://github.com/shyguy1412/proc_macro_argue"
 
 [lib]
 
