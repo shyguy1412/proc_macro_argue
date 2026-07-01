@@ -2,27 +2,37 @@ use std::ops::Deref;
 
 #[macro_export]
 macro_rules! argue {
-    ($name: ident may have $ty:path) => {
-        $name.iter().find_map(|arg| match arg {
-            $ty(ident, val) => Some((ident, val)),
-            _ => None,
-        })
-    };
-
     ($name: ident may repeat $ty:path) => {
         $name.iter().filter_map(|arg| match arg {
             $ty(ident, val) => Some((ident, val)),
             _ => None,
         })
+
     };
 
+    ($name: ident may have $ty:path) => {{
+        let args: Vec<_> = argue!($name may repeat $ty).collect();
+        match args.len() {
+            0 => Ok(None),
+            1 => Ok(args.get(1).cloned()),
+            _ => {
+                let mut errors = args.iter().skip(1).map(|(ident, ..)|
+                    ::syn::Error::new_spanned(ident, concat!(stringify!($ty), " may only appear once"))
+                );
+                let mut error = errors.nth(0).expect("match gurantees at least 2");
+                error.extend(errors);
+                Err(error)
+            }
+        }
+    }};
+
     ($name: ident must have $ty:path) => {
-        argue!($name may have $ty).ok_or_else(|| {
-                ::syn::Error::new(
-                    ::proc_macro::Span::call_site().into(),
-                    format!("Missing Required argument {}", stringify!($ty)),
-                )
-            })
+        argue!($name may have $ty).and_then(|arg|arg.ok_or_else(|| {
+            ::syn::Error::new(
+                ::proc_macro::Span::call_site().into(),
+                format!("Missing Required argument {}", stringify!($ty)),
+            )
+        }))
     };
 
     //generate enum for nested argument
