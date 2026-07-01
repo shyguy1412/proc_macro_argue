@@ -8,6 +8,14 @@ macro_rules! argue {
             _ => None,
         })
     };
+
+    ($name: ident may repeat $ty:path) => {
+        $name.iter().filter_map(|arg| match arg {
+            $ty(ident, val) => Some((ident, val)),
+            _ => None,
+        })
+    };
+
     ($name: ident must have $ty:path) => {
         argue!($name may have $ty).ok_or_else(|| {
                 ::syn::Error::new(
@@ -16,39 +24,81 @@ macro_rules! argue {
                 )
             })
     };
-    ($($name:ident: {$($arg: ident: $ty:ty),*})*) => ($(
+
+    //generate enum for nested argument
+    ($name: ident {$($arg: ident: $ty:ty),*$(,)?}) => {
         #[allow(unused)]
         enum $name {
-            $($arg(syn::Ident, $ty)),*
+            $($arg(::syn::Ident, $ty)),*
         }
-        #[allow(unused)]
-        use $name::*;
 
-        impl syn::parse::Parse for $name {
-            fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-                let meta: syn::MetaList = input.parse()?;
-                let ident: syn::Ident = meta.path.require_ident()?.clone();
+        // #[allow(unused)]
+        // use $name::*;
+
+        impl ::syn::parse::Parse for $name {
+            fn parse(input: ::syn::parse::ParseStream) -> ::syn::Result<Self> {
+                let meta: ::syn::MetaList = input.parse()?;
+                let ident: ::syn::Ident = meta.path.require_ident()?.clone();
                 use $name::*;
                 match ident.to_string().as_str() {
-                    $(stringify!($arg) => syn::parse2(meta.tokens).map(|r| $arg(ident, r)),)*
+                    $(stringify!($arg) => ::syn::parse2(meta.tokens).map(|r| $arg(ident, r)),)*
                     _ => Err(syn::Error::new_spanned(ident, "Invalid Argument")),
                 }
             }
         }
-    )*);
+    };
+
+    //generate struct for argument parameters
+    ($name: ident ($($ty:ty),*$(,)?)) => {
+        struct $name($($ty),*);
+        impl ::syn::parse::Parse for $name {
+            fn parse(input: ::syn::parse::ParseStream) -> ::syn::Result<Self> {
+                Ok($name($(input.parse::<$ty>()?),*))
+            }
+        }
+    };
+
+    //allow nested and direct declarations in one invokation
+    ($($name: ident $decl:tt)*) => {$(
+        argue!($name $decl);
+    )*};
 }
-pub struct List<T: syn::parse::Parse>(syn::punctuated::Punctuated<T, syn::token::Comma>);
-impl<T: syn::parse::Parse> syn::parse::Parse for List<T> {
+
+pub struct ArgumentList<A, D = syn::token::Comma>(syn::punctuated::Punctuated<A, D>)
+where
+    A: syn::parse::Parse,
+    D: syn::parse::Parse;
+
+impl<A, D> syn::parse::Parse for ArgumentList<A, D>
+where
+    A: syn::parse::Parse,
+    D: syn::parse::Parse,
+{
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        input
-            .parse_terminated(T::parse, syn::Token![,])
-            .map(|args| List(args))
+        syn::punctuated::Punctuated::parse_terminated_with(input, A::parse).map(|p| ArgumentList(p))
     }
 }
-impl<T: syn::parse::Parse> Deref for List<T> {
-    type Target = syn::punctuated::Punctuated<T, syn::token::Comma>;
+impl<A, D> Deref for ArgumentList<A, D>
+where
+    A: syn::parse::Parse,
+    D: syn::parse::Parse,
+{
+    type Target = syn::punctuated::Punctuated<A, D>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<'a, A, D> IntoIterator for &'a ArgumentList<A, D>
+where
+    A: syn::parse::Parse,
+    D: syn::parse::Parse,
+{
+    type Item = &'a A;
+    type IntoIter = syn::punctuated::Iter<'a, A>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
     }
 }
