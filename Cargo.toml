@@ -1,0 +1,9 @@
+[package]
+name = "proc_macro_argue"
+version = "0.0.0"
+edition = "2024"
+
+[lib]
+
+[dependencies]
+syn = "2.0.118"
