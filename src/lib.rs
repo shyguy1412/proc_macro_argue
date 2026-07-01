@@ -14,7 +14,7 @@ macro_rules! argue {
         let args: Vec<_> = argue!($name may repeat $ty).collect();
         match args.len() {
             0 => Ok(None),
-            1 => Ok(args.get(1).cloned()),
+            1 => Ok(args.get(0).cloned()),
             _ => {
                 let mut errors = args.iter().skip(1).map(|(ident, ..)|
                     ::syn::Error::new_spanned(ident, concat!(stringify!($ty), " may only appear once"))
