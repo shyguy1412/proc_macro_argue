@@ -1,5 +1,7 @@
 use std::ops::Deref;
 
+//IDEA: default values for arguments
+
 #[macro_export]
 macro_rules! argue {
     ($name: ident may repeat $ty:path) => {
@@ -36,10 +38,12 @@ macro_rules! argue {
     };
 
     //generate enum for nested argument
-    ($name: ident {$($arg: ident: $ty:ty),*$(,)?}) => {
+    ($name: ident {$($arg: ident$(: $ty:ty)*),*$(,)?}) => {
+
+
         #[allow(unused)]
         enum $name {
-            $($arg(::syn::Ident, $ty)),*
+            $($arg(::syn::Ident, ::proc_macro_argue::argue_optional!($($ty,)* ::syn::Path))),*
         }
 
         // #[allow(unused)]
@@ -47,15 +51,24 @@ macro_rules! argue {
 
         impl ::syn::parse::Parse for $name {
             fn parse(input: ::syn::parse::ParseStream) -> ::syn::Result<Self> {
-                let meta: ::syn::MetaList = input.parse()?;
-                let ident: ::syn::Ident = meta.path.require_ident()?.clone();
+                let meta: ::syn::Meta = input.parse()?;
+                let path = match &meta {
+                    ::syn::Meta::Path(path) => path,
+                    ::syn::Meta::List(meta_list) => &meta_list.path,
+                    ::syn::Meta::NameValue(meta_name_value) => &meta_name_value.path,
+                };
                 use $name::*;
+                let ident: ::syn::Ident = path.require_ident()?.clone();
+
                 match ident.to_string().as_str() {
-                    $(stringify!($arg) => ::syn::parse2(meta.tokens).map(|r| $arg(ident, r)),)*
+                    $(
+                        stringify!($arg) => ::proc_macro_argue::argue_parse!(meta $(as $ty)*).map(|a|$arg(ident, a)),
+                    )*
                     _ => Err(syn::Error::new_spanned(ident, "Invalid Argument")),
                 }
             }
         }
+
     };
 
     //generate struct for argument parameters
@@ -69,9 +82,35 @@ macro_rules! argue {
     };
 
     //allow nested and direct declarations in one invokation
-    ($($name: ident $decl:tt)*) => {$(
+    ($($name: ident $decl:tt);*$(;)?) => {$(
         argue!($name $decl);
     )*};
+
+}
+
+//for resolving path meta args
+#[doc(hidden)]
+#[macro_export]
+macro_rules! argue_optional {
+    ($ty1:path $(, $ty2:ty)?) => {
+        $ty1
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! argue_parse {
+    //generating the parsing for path arguments
+    ($meta:ident) => {
+        ::proc_macro_argue::Expect::<::syn::Path>::expect($meta)
+    };
+
+    //generating the parsing for list arguments
+    ($meta:ident as $ty:ty) => {
+        ::proc_macro_argue::Expect::<::syn::MetaList>::expect($meta)
+            .map(|list| list.tokens)
+            .and_then(::syn::parse2::<$ty>)
+    };
 }
 
 pub struct ArgumentList<A, D = syn::token::Comma>(syn::punctuated::Punctuated<A, D>)
@@ -110,5 +149,38 @@ where
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
+    }
+}
+
+pub trait Expect<T> {
+    fn expect(self) -> Result<T, syn::Error>;
+}
+
+impl Expect<syn::MetaList> for syn::Meta {
+    fn expect(self) -> Result<syn::MetaList, syn::Error> {
+        match self {
+            syn::Meta::List(meta_list) => Ok(meta_list),
+            meta => Err(syn::Error::new_spanned(meta, "Expected a List argument")),
+        }
+    }
+}
+
+impl Expect<syn::Path> for syn::Meta {
+    fn expect(self) -> Result<syn::Path, syn::Error> {
+        match self {
+            syn::Meta::Path(path) => Ok(path),
+            meta => Err(syn::Error::new_spanned(meta, "Expected a Path argument")),
+        }
+    }
+}
+impl Expect<syn::MetaNameValue> for syn::Meta {
+    fn expect(self) -> Result<syn::MetaNameValue, syn::Error> {
+        match self {
+            syn::Meta::NameValue(meta_name_value) => Ok(meta_name_value),
+            meta => Err(syn::Error::new_spanned(
+                meta,
+                "Expected a Name Value argument",
+            )),
+        }
     }
 }
