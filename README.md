@@ -9,7 +9,7 @@ argue!{
   MyArgument {
     Foo: syn::LitStr,
     Bar: syn::LitInt,
-    Baz; BazArgument
+    Baz: BazArgument
   };
   //Tuple argument
   BazArgument(syn::LitStr, syn::token::Comma, syn::LitInt)
