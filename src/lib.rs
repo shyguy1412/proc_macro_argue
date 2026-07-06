@@ -64,7 +64,7 @@ macro_rules! argue {
                     $(
                         stringify!($arg) => ::proc_macro_argue::argue_parse!(meta $(as $ty)*).map(|a|$arg(ident, a)),
                     )*
-                    _ => Err(syn::Error::new_spanned(ident, "Invalid Argument")),
+                    arg => Err(syn::Error::new_spanned(ident, format!("Invalid Argument: {}", arg))),
                 }
             }
         }
