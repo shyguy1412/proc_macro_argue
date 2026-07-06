@@ -1,3 +1,4 @@
+#[doc = include_str!("../README.md")]
 use std::ops::Deref;
 
 //IDEA: default values for arguments
@@ -45,9 +46,6 @@ macro_rules! argue {
         enum $name {
             $($arg(::syn::Ident, ::proc_macro_argue::argue_optional!($($ty,)* ::syn::Path))),*
         }
-
-        // #[allow(unused)]
-        // use $name::*;
 
         impl ::syn::parse::Parse for $name {
             fn parse(input: ::syn::parse::ParseStream) -> ::syn::Result<Self> {
