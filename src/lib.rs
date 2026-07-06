@@ -1,4 +1,5 @@
-#[doc = include_str!("../README.md")]
+#![doc = include_str!("../README.md")]
+
 use std::ops::Deref;
 
 //IDEA: default values for arguments
