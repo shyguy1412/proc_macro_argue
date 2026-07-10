@@ -151,6 +151,16 @@ where
     }
 }
 
+impl<A, D> Default for ArgumentList<A, D>
+where
+    A: syn::parse::Parse,
+    D: syn::parse::Parse,
+{
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
 pub trait Expect<T> {
     fn expect(self) -> Result<T, syn::Error>;
 }
