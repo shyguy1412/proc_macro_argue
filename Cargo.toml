@@ -10,4 +10,5 @@ repository = "https://github.com/shyguy1412/proc_macro_argue"
 [lib]
 
 [dependencies]
+proc-macro2 = "1.0.106"
 syn = "2.0.118"

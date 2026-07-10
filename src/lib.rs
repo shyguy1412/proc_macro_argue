@@ -40,11 +40,11 @@ macro_rules! argue {
     };
 
     //generate enum for nested argument
-    ($name: ident {$($arg: ident$(: $ty:ty)*),*$(,)?}) => {
+    ($vis:vis $name: ident {$($arg: ident$(: $ty:ty)*),*$(,)?}) => {
 
 
         #[allow(unused)]
-        enum $name {
+        $vis enum $name {
             $($arg(::syn::Ident, ::proc_macro_argue::argue_optional!($($ty,)* ::syn::Path))),*
         }
 
@@ -71,8 +71,8 @@ macro_rules! argue {
     };
 
     //generate struct for argument parameters
-    ($name: ident ($($ty:ty),*$(,)?)) => {
-        struct $name($($ty),*);
+    ($vis:vis $name: ident ($($ty:ty),*$(,)?)) => {
+        $vis struct $name($($ty),*);
         impl ::syn::parse::Parse for $name {
             fn parse(input: ::syn::parse::ParseStream) -> ::syn::Result<Self> {
                 Ok($name($(input.parse::<$ty>()?),*))
@@ -81,8 +81,8 @@ macro_rules! argue {
     };
 
     //allow nested and direct declarations in one invokation
-    ($($name: ident $decl:tt);*$(;)?) => {$(
-        argue!($name $decl);
+    ($($vis:vis $name: ident $decl:tt);*$(;)?) => {$(
+        argue!($vis $name $decl);
     )*};
 
 }
@@ -181,5 +181,43 @@ impl Expect<syn::MetaNameValue> for syn::Meta {
                 "Expected a Name Value argument",
             )),
         }
+    }
+}
+
+pub trait ParseArgument<'a> {
+    type Arg;
+
+    fn parse_iter<R: 'a>(
+        self,
+        map: fn(arg: &Self::Arg) -> Result<R, syn::Error>,
+    ) -> impl Iterator<Item = Result<R, syn::Error>>;
+
+    fn parse<R: 'a>(
+        self,
+        map: fn(arg: &Self::Arg) -> Result<R, syn::Error>,
+    ) -> Result<Option<R>, syn::Error>;
+}
+
+impl<'a, I: 'a, T: 'a> ParseArgument<'a> for I
+where
+    I: IntoIterator<Item = (&'a syn::Ident, &'a T)>,
+{
+    type Arg = T;
+
+    fn parse<R: 'a>(
+        self,
+        map: fn(arg: &T) -> Result<R, syn::Error>,
+    ) -> Result<Option<R>, syn::Error> {
+        self.parse_iter(map)
+            .nth(0)
+            .map(|r| r.map(Some))
+            .map_or(Ok(None), std::convert::identity)
+    }
+
+    fn parse_iter<R: 'a>(
+        self,
+        map: fn(arg: &Self::Arg) -> Result<R, syn::Error>,
+    ) -> impl Iterator<Item = Result<R, syn::Error>> {
+        self.into_iter().map(|(.., v)| v).map(map)
     }
 }
