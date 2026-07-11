@@ -72,7 +72,7 @@ macro_rules! argue {
 
     //generate struct for argument parameters
     ($vis:vis $name: ident ($($ty:ty),*$(,)?)) => {
-        $vis struct $name($($ty),*);
+        $vis struct $name($(pub $ty),*);
         impl ::syn::parse::Parse for $name {
             fn parse(input: ::syn::parse::ParseStream) -> ::syn::Result<Self> {
                 Ok($name($(input.parse::<$ty>()?),*))
