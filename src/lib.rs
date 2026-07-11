@@ -1,8 +1,7 @@
 #![doc = include_str!("../README.md")]
 
-use std::ops::Deref;
-
-//IDEA: default values for arguments
+//todo: argue must not have to validate mutally exclusive arguments
+//todo: parse feature to prove a bunch of common parsing functions
 
 #[macro_export]
 macro_rules! argue {
@@ -112,6 +111,7 @@ macro_rules! argue_parse {
     };
 }
 
+/// A wrapper around Punctuated
 pub struct ArgumentList<A, D = syn::token::Comma>(syn::punctuated::Punctuated<A, D>)
 where
     A: syn::parse::Parse,
@@ -126,7 +126,7 @@ where
         syn::punctuated::Punctuated::parse_terminated_with(input, A::parse).map(|p| ArgumentList(p))
     }
 }
-impl<A, D> Deref for ArgumentList<A, D>
+impl<A, D> std::ops::Deref for ArgumentList<A, D>
 where
     A: syn::parse::Parse,
     D: syn::parse::Parse,
@@ -161,6 +161,8 @@ where
     }
 }
 
+/// A trait to expect an enum to some variant
+/// mainly used internally to validate the different types of Meta
 pub trait Expect<T> {
     fn expect(self) -> Result<T, syn::Error>;
 }
@@ -182,6 +184,7 @@ impl Expect<syn::Path> for syn::Meta {
         }
     }
 }
+
 impl Expect<syn::MetaNameValue> for syn::Meta {
     fn expect(self) -> Result<syn::MetaNameValue, syn::Error> {
         match self {
@@ -194,6 +197,7 @@ impl Expect<syn::MetaNameValue> for syn::Meta {
     }
 }
 
+/// A helper to allow parsing the syntax tree node of an argument or argument list with some parsing function
 pub trait ParseArgument<'a> {
     type Arg;
 
